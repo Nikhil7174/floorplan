@@ -121,6 +121,8 @@ def _interval_frac(reason: str, config: AppConfig) -> float:
         return config.video.consensus_frac
     if reason == "video_thin_consensus":
         return config.video.thin_frac
+    if reason == "photo_still_consensus":
+        return config.photos.door_scale_frac
     if reason.startswith("door_height"):
         return config.photos.door_scale_frac
     if "fallback" in reason:

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from pathlib import Path
 
 import cv2
@@ -12,19 +11,14 @@ from scipy.stats import beta
 
 from floorplan.config import AppConfig
 from floorplan.models import Opening, VideoRoom
+from floorplan.reconstruction.consensus import (
+    SaneFrame,
+    consensus_mode as shared_consensus_mode,
+    median_box,
+)
 from floorplan.reconstruction.sfm import reconstruct_from_bgr, _fallback_box
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class SaneFrame:
-    score: float
-    polygon: np.ndarray
-    openings: list[list[Opening]]
-    ceiling_m: float
-    reason: str
-    extra: list[str]
 
 
 def sample_keyframe_indices(
@@ -104,7 +98,12 @@ def reconstruct_video_room(
             len(sane),
             next(iter(wall_counts)),
         )
-        return _median_box(sane, config, extra_warnings=sane[0].extra)
+        return median_box(
+            sane,
+            extra_warnings=sane[0].extra,
+            reason="video_keyframe_consensus",
+            tag="video",
+        )
     if mode == "thin":
         logger.warning(
             "Video thin consensus on %s: sane=%d wall_counts=%s",
@@ -129,48 +128,6 @@ def reconstruct_video_room(
 
 
 def consensus_mode(sane: list[SaneFrame], config: AppConfig) -> str:
-    """Explicit branch: mismatched wall counts never enter a median.
+    """Video wrapper: same wall-count guard as photos, video min_sane_frames."""
 
-    Why: a naive index-wise median on 3-wall vs 4-wall polygons is silent garbage.
-    """
-
-    if not sane:
-        return "fallback"
-    counts = {len(frame.polygon) for frame in sane}
-    if len(sane) >= config.video.min_sane_frames and len(counts) == 1:
-        return "consensus"
-    return "thin"
-
-
-def _median_box(
-    frames: list[SaneFrame],
-    config: AppConfig,
-    extra_warnings: list[str],
-) -> tuple[np.ndarray, list[list[Opening]], float, str, list[str]]:
-    """Median width/depth AABB. Why: vertex-index median is garbage if order differs."""
-
-    widths: list[float] = []
-    depths: list[float] = []
-    ceilings: list[float] = []
-    for frame in frames:
-        width, depth = _aabb_wh(frame.polygon)
-        widths.append(width)
-        depths.append(depth)
-        ceilings.append(frame.ceiling_m)
-    width = float(np.median(widths))
-    depth = float(np.median(depths))
-    ceiling = float(np.median(ceilings))
-    polygon = np.array(
-        [[0.0, 0.0], [width, 0.0], [width, depth], [0.0, depth]],
-        dtype=np.float64,
-    )
-    best = max(frames, key=lambda item: item.score)
-    openings = best.openings if len(best.openings) == 4 else [[] for _ in range(4)]
-    warnings = list(extra_warnings) + [f"video_consensus_n={len(frames)}"]
-    return polygon, openings, ceiling, "video_keyframe_consensus", warnings
-
-
-def _aabb_wh(polygon: np.ndarray) -> tuple[float, float]:
-    xs = polygon[:, 0]
-    ys = polygon[:, 1]
-    return float(xs.max() - xs.min()), float(ys.max() - ys.min())
+    return shared_consensus_mode(sane, config.video.min_sane_frames)
