@@ -1,0 +1,70 @@
+# All scored thresholds live here so a live defense can point to one file.
+seed: 42
+
+lidar:
+  frame_stride: 12
+  pixel_stride: 4
+  min_confidence: 1
+  max_depth_m: 8.0
+  min_depth_m: 0.15
+  voxel_m: 0.04
+  # RGB size is inferred from principal point; this is the fallback.
+  rgb_size: [1920, 1440]
+
+ransac:
+  residual_m: 0.02
+  iterations: 350
+  min_inliers: 400
+  max_planes: 10
+
+planes:
+  horizontal_align: 0.88
+  vertical_align: 0.45
+  wall_merge_angle_deg: 12.0
+  wall_merge_offset_m: 0.12
+  manhattan_snap: true
+  min_ceiling_height_m: 1.8
+  max_ceiling_height_m: 4.0
+
+openings:
+  min_width_m: 0.55
+  max_width_m: 2.4
+  door_width_min_m: 0.7
+  door_width_max_m: 1.15
+  bin_m: 0.05
+  min_points_per_bin: 3
+  wall_band_m: 0.08
+
+photos:
+  min_images: 2
+  max_use_images: 8
+  # Interior door leaf, typical US 80" — the metric stick when depth is absent.
+  door_height_m: 2.032
+  ceiling_prior_m: 2.4
+  line_min_length_px: 40
+  vp_iterations: 250
+  vp_inlier_px: 4.0
+  door_scale_frac: 0.08
+  prior_scale_frac: 0.18
+  failed_scale_frac: 0.30
+  fallback_width_m: 4.0
+  fallback_depth_m: 5.0
+
+video:
+  keyframe_count: 16
+  skip_start_frac: 0.10
+  skip_end_frac: 0.10
+  min_sane_frames: 3
+  consensus_frac: 0.03
+  thin_frac: 0.08
+  # Bias samples toward mid-clip (walker more often centered) instead of uniform time.
+  midpoint_bias: true
+
+confidence:
+  wall_base_half_m: 0.015
+  height_base_half_m: 0.01
+  area_base_half_m2: 0.15
+  residual_gain: 1.5
+  sparse_gain: 0.04
+  missing_ceiling_prior_m: 2.4
+  missing_ceiling_half_m: 0.8

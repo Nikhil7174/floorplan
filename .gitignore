@@ -1,0 +1,28 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+
+# Virtual environments
+.venv
+
+# Vendor Drive samples only — not ours to redistribute.
+# Our own benchmark captures and ground truth MUST be committed
+# (Deliverable #8: sensor logs, measurements, app exports).
+# Do not add data/raw/* or data/ground_truth/* — that silently drops the bundle.
+data/raw/single_room
+data/raw/floor_only
+data/raw/with_ceiling
+data/raw/single_room_photos
+data/raw/vendor/
+data/raw/**/*.zip
+
+# Local pipeline outputs (regenerable)
+runs/
