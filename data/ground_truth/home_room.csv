@@ -1,0 +1,10 @@
+property_id,room_id,kind,wall_id,value_m,value_cm,source,notes
+home,home_room,wall_length,wall_01,3.31,331,tape,order as measured around the room
+home,home_room,wall_length,wall_02,4.01,401,tape,
+home,home_room,wall_length,wall_03,3.38,338,tape,
+home,home_room,wall_length,wall_04,3.94,394,tape,
+home,home_room,opening_width,door_01,0.815,81.5,tape,door slab width; which wall not specified
+home,home_room,opening_height,door_01,2.045,204.5,tape,door slab height header-to-floor
+home,home_room,ceiling_height,,2.76,276,tape,
+home,home_room,floor_area_m2,,13.2964,,derived,"mean opposite walls: ((3.31+3.38)/2)*((4.01+3.94)/2)"
+home,home_room,ceiling_area_m2,,13.2964,,derived,same as floor
