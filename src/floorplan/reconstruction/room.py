@@ -218,6 +218,12 @@ def _opening_kind(width: float, config: AppConfig) -> OpeningKind:
     return "unknown"
 
 
+def polygon_from_planes(planes: PlaneSet) -> np.ndarray:
+    """Floor-plane Manhattan box. Photo/depth recon uses this, then photo intervals."""
+
+    return _oriented_bounds(planes, _floor_basis(planes.up))
+
+
 def _floor_basis(up: np.ndarray) -> np.ndarray:
     helper = np.array([1.0, 0.0, 0.0]) if abs(float(up[0])) < 0.9 else np.array([0.0, 1.0, 0.0])
     e0 = np.cross(up, helper)

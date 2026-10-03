@@ -1,7 +1,8 @@
-"""Photo-tier room reconstruction: vanishing points + door-height scale.
+"""Photo-tier room reconstruction: monocular depth (primary) or vanishing points.
 
-COLMAP is skipped on purpose: 2–8 stills usually fail SfM, and it is a
-painful clean-machine dependency. Manhattan VPs run on a single strong view.
+COLMAP is skipped on purpose: 2–8 stills usually fail SfM. Depth Anything V2
+builds a point cloud for the existing RANSAC room; LSD+VP is the fallback
+when the model is missing or the depth room fails sanity.
 """
 
 from __future__ import annotations
@@ -13,8 +14,10 @@ import cv2
 import numpy as np
 
 from floorplan.config import AppConfig
-from floorplan.exceptions import EmptyCaptureError
+from floorplan.exceptions import DegenerateIntersectionError, EmptyCaptureError
 from floorplan.models import Opening, PhotoRoom
+from floorplan.reconstruction.consensus import SaneFrame, consensus_mode, median_box
+from floorplan.reconstruction.depth_model import reconstruct_from_depth
 from floorplan.reconstruction.scale_recovery import scale_from_door_height
 from floorplan.reconstruction.vanishing import (
     LineSegment,
@@ -45,15 +48,49 @@ def load_image(path: Path) -> np.ndarray | None:
         return None
 
 
+def working_image(image: np.ndarray, config: AppConfig) -> np.ndarray:
+    """Downscale and blur before LSD. Why: 12MP stills vote for fabric, not walls."""
+
+    h, w = image.shape[:2]
+    long = max(h, w)
+    cap = max(config.photos.max_long_edge_px, 320)
+    if long > cap:
+        scale = cap / long
+        image = cv2.resize(
+            image,
+            (int(round(w * scale)), int(round(h * scale))),
+            interpolation=cv2.INTER_AREA,
+        )
+    k = int(config.photos.pre_blur_px)
+    if k >= 3:
+        if k % 2 == 0:
+            k += 1
+        image = cv2.GaussianBlur(image, (k, k), 0)
+    return image
+
+
 def reconstruct_from_bgr(
     image: np.ndarray,
     config: AppConfig,
     label: str = "frame",
 ) -> tuple[float, np.ndarray, list[list[Opening]], float, str, list[str]] | None:
-    """Run the photo recon on an in-memory BGR frame. None if VP/sanity fails."""
+    """Depth-model room first; VP only if that path is off or fails sanity."""
 
+    work = working_image(image, config)
+    if config.photos.use_depth_model:
+        result = reconstruct_from_depth(work, config, label=label)
+        if result is not None:
+            score, polygon, openings, ceiling, reason, extra = result
+            if _sane_room(polygon, ceiling):
+                return result
+            logger.warning("Photo %s depth room failed sanity; trying VP", label)
+        else:
+            logger.warning("Photo %s depth recon returned None; trying VP", label)
     try:
-        polygon, openings, ceiling, reason, score, extra = _reconstruct_one(image, config)
+        polygon, openings, ceiling, reason, score, extra = _reconstruct_one(work, config)
+    except DegenerateIntersectionError as exc:
+        logger.warning("Photo %s failed: ill-conditioned intersection (%s)", label, exc)
+        return None
     except Exception as exc:
         logger.warning("Photo %s failed: %s", label, exc)
         return None
@@ -67,9 +104,13 @@ def reconstruct_photo_room(
     room: PhotoRoom,
     config: AppConfig,
 ) -> tuple[np.ndarray, list[list[Opening]], float, str, list[str]]:
-    """Return (polygon_xy meters, openings per wall, ceiling_m, scale_reason, warnings)."""
+    """Run VP on every still. Median AABB only when enough sane rooms agree.
 
-    best: tuple[float, np.ndarray, list[list[Opening]], float, str, list[str]] | None = None
+    Fewer than ``photos.min_sane_stills`` (or mismatched wall counts) keeps
+    the single highest-score still — same as the old photo path.
+    """
+
+    sane: list[SaneFrame] = []
     for image_path in room.images:
         image = load_image(image_path)
         if image is None:
@@ -77,21 +118,56 @@ def reconstruct_photo_room(
         result = reconstruct_from_bgr(image, config, label=image_path.name)
         if result is None:
             continue
-        if best is None or result[0] > best[0]:
-            best = result
-    if best is None:
-        logger.warning("No Manhattan reconstruction for %s; emitting prior box", room.room_id)
-        polygon = _fallback_box(config)
-        n = len(polygon)
-        return (
-            polygon,
-            [[] for _ in range(n)],
-            config.photos.ceiling_prior_m,
-            "fallback_prior",
-            ["manhattan_vp_failed"],
+        score, polygon, openings, ceiling, reason, extra = result
+        sane.append(
+            SaneFrame(
+                score=score,
+                polygon=polygon,
+                openings=openings,
+                ceiling_m=ceiling,
+                reason=reason,
+                extra=extra,
+            )
         )
-    _, polygon, openings, ceiling, reason, extra = best
-    return polygon, openings, ceiling, reason, extra
+    mode = consensus_mode(sane, config.photos.min_sane_stills)
+    wall_counts = {len(frame.polygon) for frame in sane}
+    if mode == "consensus":
+        logger.info(
+            "Photo consensus on %s: %d stills, %d walls",
+            room.room_id,
+            len(sane),
+            next(iter(wall_counts)),
+        )
+        return median_box(
+            sane,
+            extra_warnings=sane[0].extra,
+            reason="photo_still_consensus",
+            tag="photo",
+        )
+    if mode == "thin":
+        best = max(sane, key=lambda item: item.score)
+        warnings = list(best.extra)
+        if len(sane) >= 2:
+            warnings.append("photo_thin_consensus")
+        if len(wall_counts) > 1 and len(sane) >= config.photos.min_sane_stills:
+            warnings.append("photo_wall_count_mismatch")
+        logger.info(
+            "Photo thin consensus on %s: sane=%d wall_counts=%s; keeping best still",
+            room.room_id,
+            len(sane),
+            sorted(wall_counts),
+        )
+        return best.polygon, best.openings, best.ceiling_m, best.reason, warnings
+    logger.warning("No Manhattan reconstruction for %s; emitting prior box", room.room_id)
+    polygon = _fallback_box(config)
+    n = len(polygon)
+    return (
+        polygon,
+        [[] for _ in range(n)],
+        config.photos.ceiling_prior_m,
+        "fallback_prior",
+        ["manhattan_vp_failed"],
+    )
 
 
 def _reconstruct_one(
@@ -101,7 +177,11 @@ def _reconstruct_one(
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     h, w = gray.shape
     principal = np.array([w * 0.5, h * 0.5], dtype=np.float64)
-    segments = detect_segments(gray, config.photos.line_min_length_px)
+    min_len = max(
+        config.photos.line_min_length_px,
+        int(config.photos.line_min_length_frac * max(h, w)),
+    )
+    segments = detect_segments(gray, min_len)
     if len(segments) < 8:
         raise EmptyCaptureError("Too few line segments for vanishing points.")
     rng = np.random.default_rng(config.seed)
@@ -136,7 +216,9 @@ def _reconstruct_one(
         inlier_counts=(len(membership[0]), len(membership[1]), len(membership[2])),
         segments=segments,
     )
-    polygon_u, floor_d, up, k_inv = _unscaled_floor_polygon(frame, segments, membership, w, h)
+    polygon_u, floor_d, up, k_inv = _unscaled_floor_polygon(
+        frame, segments, membership, w, h, config
+    )
     door = _detect_door(segments, frame)
     extra: list[str] = []
     candidates: list[tuple[np.ndarray, list[list[Opening]], float, str, float, list[str]]] = []
@@ -155,7 +237,12 @@ def _reconstruct_one(
                     ceiling = measured
                     note.append("ceiling_from_vertical_span")
             openings = _door_openings(door, polygon, config)
-            if _sane_room(polygon, ceiling):
+            if _sane_room(
+                polygon,
+                ceiling,
+                why="door_scale",
+                vp_inliers=frame.inlier_counts,
+            ):
                 score = float(sum(frame.inlier_counts)) + 50.0
                 candidates.append((polygon, openings, ceiling, "door_height_2.032m", score, note))
         except EmptyCaptureError:
@@ -166,7 +253,12 @@ def _reconstruct_one(
             scale = scale_from_door_height(unscaled, config.photos.ceiling_prior_m)
             polygon = polygon_u * scale
             openings = [[] for _ in range(len(polygon))]
-            if _sane_room(polygon, config.photos.ceiling_prior_m):
+            if _sane_room(
+                polygon,
+                config.photos.ceiling_prior_m,
+                why="ceiling_prior",
+                vp_inliers=frame.inlier_counts,
+            ):
                 score = float(sum(frame.inlier_counts))
                 candidates.append(
                     (
@@ -200,6 +292,7 @@ def _unscaled_floor_polygon(
     membership: list[list[int]],
     width: int,
     height: int,
+    config: AppConfig,
 ) -> tuple[np.ndarray, float, np.ndarray, np.ndarray]:
     k_inv = _k_inv(frame.focal, frame.principal)
     dirs = []
@@ -211,15 +304,22 @@ def _unscaled_floor_polygon(
     # Floor is below the camera: up · X + d = 0 with d chosen so the plane is in front.
     floor_d = 1.0
     horiz_idx = [i for i in range(3) if i != frame.vertical_index][:2]
-    lines_2d: list[np.ndarray] = []
+    pairs: list[list[np.ndarray]] = []
     for hid in horiz_idx:
         family = [segments[i] for i in membership[hid]] or segments
-        extremes = _extreme_family_lines(family, frame.vps[hid], height)
-        lines_2d.extend(extremes)
-    if len(lines_2d) < 4:
-        # Image-border fallback quad in the lower 60%.
+        extremes = _extreme_family_lines(
+            family,
+            height,
+            parallel_max_deg=config.photos.family_parallel_max_deg,
+        )
+        if len(extremes) == 2:
+            pairs.append(extremes)
+    # Interleave families so each corner is A∩B, never A_lo∩A_hi (same-family, ~parallel).
+    if len(pairs) == 2:
+        lines_2d = [pairs[0][0], pairs[1][0], pairs[0][1], pairs[1][1]]
+    else:
         lines_2d = _border_quad_lines(width, height)
-    corners_img = _intersect_quad(lines_2d[:4])
+    corners_img = _intersect_quad(lines_2d, config.photos.min_intersect_angle_deg)
     corners_3d = []
     for uv in corners_img:
         ray = k_inv @ np.array([uv[0], uv[1], 1.0])
@@ -244,31 +344,81 @@ def _unscaled_floor_polygon(
     return poly, floor_d, up, k_inv
 
 
-def _extreme_family_lines(
-    family: list[LineSegment], vp: np.ndarray, image_h: int
-) -> list[np.ndarray]:
-    """Two parallel walls sharing a VP: pick the two extremes by signed offset."""
+def _line_direction(line: np.ndarray) -> np.ndarray:
+    """Direction of ax+by+c=0 is perpendicular to the normal (a, b)."""
 
-    offsets = []
-    lines = []
+    return np.array([-line[1], line[0]], dtype=np.float64)
+
+
+def _acute_angle_deg(line_a: np.ndarray, line_b: np.ndarray) -> float:
+    d1 = _line_direction(line_a)
+    d2 = _line_direction(line_b)
+    n1 = float(np.linalg.norm(d1))
+    n2 = float(np.linalg.norm(d2))
+    if n1 < 1e-12 or n2 < 1e-12:
+        return 0.0
+    cos_angle = abs(float(d1 @ d2) / (n1 * n2))
+    return float(np.degrees(np.arccos(np.clip(cos_angle, 0.0, 1.0))))
+
+
+def _line_intersection_conditioned(
+    line_a: np.ndarray,
+    line_b: np.ndarray,
+    min_angle_deg: float = 8.0,
+) -> np.ndarray:
+    """Intersect two homogeneous lines; refuse near-parallel pairs."""
+
+    angle_deg = _acute_angle_deg(line_a, line_b)
+    if angle_deg < min_angle_deg:
+        raise DegenerateIntersectionError(
+            f"lines nearly parallel ({angle_deg:.1f} deg), refusing intersection"
+        )
+    point = np.cross(line_a, line_b)
+    if abs(point[2]) < 1e-10:
+        raise DegenerateIntersectionError("homogeneous intersection at infinity")
+    xy = point[:2] / point[2]
+    if not np.all(np.isfinite(xy)):
+        raise DegenerateIntersectionError("non-finite intersection")
+    return xy
+
+
+def _extreme_family_lines(
+    family: list[LineSegment],
+    image_h: int,
+    *,
+    parallel_max_deg: float,
+) -> list[np.ndarray]:
+    """Two walls of one VP family: extremes by offset, but only if they stay parallel."""
+
+    scored: list[tuple[float, float, np.ndarray]] = []
     for seg in family:
         line = seg.homogeneous()
         line = line / (np.hypot(line[0], line[1]) + 1e-12)
-        # Prefer lower-half segments (wall–floor more than wall–ceiling).
         if seg.midpoint[1] < image_h * 0.25:
             continue
-        offsets.append(float(line[2]))
-        lines.append(line)
-    if len(lines) < 2:
+        scored.append((float(line[2]), seg.length, line))
+    if len(scored) < 2:
+        scored = []
         for seg in family:
             line = seg.homogeneous()
             line = line / (np.hypot(line[0], line[1]) + 1e-12)
-            offsets.append(float(line[2]))
-            lines.append(line)
-    if len(lines) < 2:
+            scored.append((float(line[2]), seg.length, line))
+    if len(scored) < 2:
         return []
-    order = np.argsort(offsets)
-    return [lines[int(order[0])], lines[int(order[-1])]]
+    lengths = [item[1] for item in scored]
+    min_len = 0.6 * float(np.median(lengths))
+    scored = [item for item in scored if item[1] >= min_len] or scored
+    scored.sort(key=lambda item: item[0])
+    n = len(scored)
+    for i in range(min(3, n)):
+        for j in range(n - 1, max(n - 4, i), -1):
+            a = scored[i][2]
+            b = scored[j][2]
+            if _acute_angle_deg(a, b) <= parallel_max_deg:
+                return [a, b]
+    raise DegenerateIntersectionError(
+        "could not find a parallel extreme pair in a VP family"
+    )
 
 
 def _border_quad_lines(width: int, height: int) -> list[np.ndarray]:
@@ -286,38 +436,65 @@ def _border_quad_lines(width: int, height: int) -> list[np.ndarray]:
     return out
 
 
-def _intersect_quad(lines: list[np.ndarray]) -> np.ndarray:
+def _intersect_quad(lines: list[np.ndarray], min_angle_deg: float) -> np.ndarray:
     corners = []
     for i in range(4):
-        p = np.cross(lines[i], lines[(i + 1) % 4])
-        if abs(p[2]) < 1e-10:
-            continue
-        corners.append(p[:2] / p[2])
-    if len(corners) < 4:
-        raise EmptyCaptureError("Could not intersect a floor quad from vanishing lines.")
+        corners.append(
+            _line_intersection_conditioned(lines[i], lines[(i + 1) % 4], min_angle_deg)
+        )
     pts = np.stack(corners, axis=0)
     if abs(_shoelace(pts)) < 1e-3:
-        raise EmptyCaptureError("Floor quad is degenerate.")
+        raise DegenerateIntersectionError("Floor quad shoelace is degenerate.")
     return pts
 
 
-def _sane_room(polygon: np.ndarray, ceiling_m: float) -> bool:
+def _sane_room(
+    polygon: np.ndarray,
+    ceiling_m: float,
+    *,
+    why: str = "",
+    vp_inliers: tuple[int, ...] | None = None,
+) -> bool:
     """Reject slivers and non-physical heights. Why: a tight wrong number is a scored miss."""
 
-    if polygon.shape[0] < 3:
+    n = int(polygon.shape[0])
+    if n < 3:
+        logger.info(
+            "sane_room reject [%s]: check=edge_count n=%d vp_inliers=%s",
+            why,
+            n,
+            vp_inliers,
+        )
         return False
     edges = [
-        float(np.linalg.norm(polygon[(i + 1) % len(polygon)] - polygon[i]))
-        for i in range(len(polygon))
+        float(np.linalg.norm(polygon[(i + 1) % n] - polygon[i]))
+        for i in range(n)
     ]
     area = abs(_shoelace(polygon))
-    if min(edges) < 0.6 or max(edges) > 18.0:
-        return False
-    if area < 2.0 or area > 80.0:
-        return False
-    if min(edges) / max(edges) < 0.2:
-        return False
-    if not (1.7 <= ceiling_m <= 4.2):
+    aspect = min(edges) / max(edges) if max(edges) else 0.0
+    check = ""
+    if min(edges) < 1.8:
+        check = "min_edge"
+    elif max(edges) > 18.0:
+        check = "max_edge"
+    elif area < 6.0 or area > 80.0:
+        check = "area"
+    elif aspect < 0.28:
+        check = "aspect"
+    elif not (1.7 <= ceiling_m <= 4.2):
+        check = "ceiling"
+    if check:
+        logger.info(
+            "sane_room reject [%s]: check=%s n=%d edges=%s area=%.2f aspect=%.2f ceil=%.2f vp_inliers=%s",
+            why,
+            check,
+            n,
+            [round(e, 2) for e in edges],
+            area,
+            aspect,
+            ceiling_m,
+            vp_inliers,
+        )
         return False
     return True
 

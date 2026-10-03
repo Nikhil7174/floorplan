@@ -42,8 +42,29 @@ photos:
   door_height_m: 2.032
   ceiling_prior_m: 2.4
   line_min_length_px: 40
+  # Phone stills are 4000px; LSD then locks onto curtains and monitors.
+  line_min_length_frac: 0.08
+  max_long_edge_px: 1600
+  pre_blur_px: 5
   vp_iterations: 250
   vp_inlier_px: 4.0
+  # Refuse floor-quad corners from near-parallel lines (100 m walls).
+  min_intersect_angle_deg: 8.0
+  # Two extremes in one VP family should themselves be nearly parallel.
+  family_parallel_max_deg: 25.0
+  # Median AABB only when this many stills pass _sane_room with the same wall count.
+  min_sane_stills: 3
+  # Depth Anything V2 Small → point cloud → existing RANSAC. VP is fallback.
+  use_depth_model: true
+  depth_model_id: depth-anything/Depth-Anything-V2-Small-hf
+  depth_stride: 4
+  depth_residual_m: 0.08
+  depth_min_inliers: 200
+  depth_voxel_m: 0.05
+  depth_min_z_m: 0.2
+  depth_max_z_m: 12.0
+  door_width_m: 0.90
+  camera_height_prior_m: 1.50
   door_scale_frac: 0.08
   prior_scale_frac: 0.18
   failed_scale_frac: 0.30

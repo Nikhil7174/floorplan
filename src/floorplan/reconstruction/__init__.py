@@ -5,6 +5,7 @@ from floorplan.reconstruction.plane_fitting import (
     recover_vertical_walls,
 )
 from floorplan.reconstruction.room import build_room, build_room_from_polygon
+from floorplan.reconstruction.depth_model import reconstruct_from_depth
 from floorplan.reconstruction.sfm import reconstruct_photo_room
 from floorplan.reconstruction.video import reconstruct_video_room
 
@@ -14,6 +15,7 @@ __all__ = [
     "classify_planes",
     "extract_planes",
     "fit_plane_ransac",
+    "reconstruct_from_depth",
     "reconstruct_photo_room",
     "reconstruct_video_room",
     "recover_vertical_walls",

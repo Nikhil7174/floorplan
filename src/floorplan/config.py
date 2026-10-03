@@ -51,8 +51,24 @@ class PhotoSettings(BaseModel):
     door_height_m: float = 2.032
     ceiling_prior_m: float = 2.4
     line_min_length_px: int = 40
+    line_min_length_frac: float = 0.08
+    max_long_edge_px: int = 1600
+    pre_blur_px: int = 5
     vp_iterations: int = 250
     vp_inlier_px: float = 4.0
+    min_intersect_angle_deg: float = 8.0
+    family_parallel_max_deg: float = 25.0
+    min_sane_stills: int = 3
+    use_depth_model: bool = True
+    depth_model_id: str = "depth-anything/Depth-Anything-V2-Small-hf"
+    depth_stride: int = 4
+    depth_residual_m: float = 0.08
+    depth_min_inliers: int = 200
+    depth_voxel_m: float = 0.05
+    depth_min_z_m: float = 0.2
+    depth_max_z_m: float = 12.0
+    door_width_m: float = 0.90
+    camera_height_prior_m: float = 1.50
     # Calibrated half-width as a fraction of the value (photo gate is ±8%).
     door_scale_frac: float = 0.08
     prior_scale_frac: float = 0.18

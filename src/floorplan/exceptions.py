@@ -21,5 +21,9 @@ class InsufficientPlanesError(FloorplanError):
     """Fewer than three walls after merging; cannot close a room polygon."""
 
 
+class DegenerateIntersectionError(FloorplanError):
+    """Two lines are too parallel to form a stable floor-quad corner."""
+
+
 class SchemaValidationError(FloorplanError):
     """Output JSON failed our internal PropertyPlan schema."""
