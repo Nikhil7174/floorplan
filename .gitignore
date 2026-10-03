@@ -26,3 +26,6 @@ data/raw/**/*.zip
 
 # Local pipeline outputs (regenerable)
 runs/
+
+# Scratch copies from Downloads sweeps. The protocol capture is home_room_*.
+data/raw/downloads_sane/

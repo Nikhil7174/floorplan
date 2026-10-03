@@ -17,6 +17,7 @@ sensor logs, tape/laser ground truth, and incumbent-app exports.
   (machine-specific paths into Downloads)
 - `single_room_photos/` — stills ripped from the vendor video for local debugging,
   not a real photo-tier capture
+- `downloads_sane/` — local filter dump from `~/Downloads`; not a protocol folder
 
 Those vendor names are gitignored on purpose. Anything else under
 `data/raw/` or `data/ground_truth/` is tracked. If you are about to add
