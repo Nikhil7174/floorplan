@@ -4,6 +4,20 @@ Written as decisions happen. Cap is 6 pages at submission; this file is the sing
 
 **Schedule.** Increment 3 of ~6 (LiDAR multi-room drift, damage, fix loop, benchmark/head-to-head still ahead). Video is many photo reconstructions plus a median, not SLAM.
 
+## Siva — 3 Oct 2026 (written assumptions for submission)
+
+Reply, paraphrased: (1) we may list assumptions at submission; (2) the Drive samples have **no** tape/laser GT — capture our own for one or two rooms, and only run the vendor zips once that path looks good.
+
+Assumptions we will list:
+
+1. **Opening widths on photos/video** follow the same widening rule as walls (reading B). The 2 cm / 85% gate is LiDAR-only. Photo/video openings are a placeholder leaf; position is not measured.
+2. **JSON schema** is ours (`src/floorplan/schema/property_plan.json`). None was published in the PDF or Drive.
+3. **LiDAR GT.** We have no LiDAR phone. Vendor zips are run as a smoke test, not scored against tape. Scored rooms are our own photo/video + tape (`data/ground_truth/home_room.csv`).
+4. **Door scale** defaults to 2.032 m (80"). This room’s taped leaf is 2.045 m; we score against tape and do not retune the global prior unless a capture-local config is used.
+5. **One clip / one still-folder per room.** We do not invent room cuts from a property-length walk.
+
+**Opening gate — spec is ambiguous; this is our reading.** The metric table requires opening widths ≤ 2 cm on ≥ 85% of openings, and scores missed/phantom openings. Walls are explicitly loosened for photos (±8%) and video (±3%). The opening row has **no** photo/video exception. Two readings: (a) 2 cm applies at every tier, or (b) openings follow the same “calibrated intervals widen as sensors thin” rule as walls. We are shipping (b): photo opening *position* is a placeholder (typical 0.9 m leaf on the longest wall, not imaged), and we do not claim the 2 cm detection gate on the photo path. Siva said we may list this as an assumption. If a grader still applies (a), photo openings fail that row. Do not spend increment time building jamb localization.
+
 ## Increment 1 — LiDAR single-room path
 
 **Capture route.** Route 2, stock **Stray Scanner**. Sample Drive zips already match that layout (`odometry.csv`, 16-bit mm depth, 0/1/2 confidence). Building an iOS app is out of scope for 48 hours and would not change the reconstruction.
@@ -24,15 +38,17 @@ Written as decisions happen. Cap is 6 pages at submission; this file is the sing
 
 ## Increment 2 — Photo tier
 
-**Why not COLMAP.** The spec is 2–8 stills per room. Sparse SfM fails more often than it works, and COLMAP is a bad clean-machine dependency. We recover a Manhattan frame from vanishing points (LSD, Hough fallback) on the strongest view, then set metric scale from a detected door leaf at **2.032 m** (`configs/default.yaml` → `photos.door_height_m`). If no door, a vertical span is assumed to be a 2.4 m ceiling (`ceiling_prior_no_door`) and the interval widens to 18%. If VPs fail entirely we emit a prior box at 30% — wide, not a crash.
+**Why not COLMAP.** The spec is 2–8 stills per room. Sparse SfM fails more often than it works, and COLMAP is a bad clean-machine dependency.
+
+**Photo recon (4 Oct).** LSD+VP died on occluded / patterned / frontal stills (one sane photo in the whole Downloads sweep). The photo path now runs **Depth Anything V2 Small** (`depth-anything/Depth-Anything-V2-Small-hf`): relative depth → back-project → the same RANSAC + Manhattan box as LiDAR. Relative depth is affine-ambiguous, so we fit **scale+shift** from two known lengths (door height 2.032 m and door width 0.90 m). No door → camera-height + ceiling priors. LSD+VP remains the fallback if the model is missing or the depth room fails `_sane_room`. Multi-still median is unchanged. Photo gate stays ±8%.
 
 **Calibrated intervals.** The photo gate is ±8% with calibrated intervals. Door-scaled lengths use `door_scale_frac: 0.08`. That is the calibration: we do not report 2 cm on a phone still.
 
-**Opening gate — spec is ambiguous; this is our reading.** The metric table requires opening widths ≤ 2 cm on ≥ 85% of openings, and scores missed/phantom openings. Walls are explicitly loosened for photos (±8%) and video (±3%). The opening row has **no** photo/video exception. Two readings: (a) 2 cm applies at every tier, or (b) openings follow the same “calibrated intervals widen as sensors thin” rule as walls. We are shipping (b): photo opening *position* is a placeholder (typical 0.9 m leaf on the longest wall, not imaged), and we do not claim the 2 cm detection gate on the photo path. If a grader applies (a), photo openings will fail that row. This is a documented judgment call, not a silent gap. If we have a channel to Siva, ask which reading they want — do not spend increment time building real jamb localization.
+**Opening gate.** See the Siva note above. Shipping reading (b).
 
 **Per-room folders → one plan.** Each subfolder becomes a `RoomGeometry`. `stitch_rooms` matches door widths (±20%) for adjacency and translates rooms so AABBs do not overlap. Unmatched rooms pack in a row with `photo_stitch_unmatched_doors`. This is not a pose graph; photo folders have no shared poses. Drift ablation stays a LiDAR-tier job.
 
-**Disclosure.** No pretrained network. Line detection is OpenCV LSD or Canny+Hough. Door height is a published interior standard, not measured on the day unless we later tape the actual leaf.
+**Disclosure.** Photo/video now use a pretrained monocular depth model (Depth Anything V2 Small, ~100 MB, Hugging Face). Plane fitting, door-height scale, and JSON are still ours. LSD+VP is fallback only. Door height is a published interior standard (80"), not the taped 2.045 m leaf.
 
 **Proxy frames vs protocol stills.** Stills ripped from the vendor `rgb.mp4` fail VP sanity (handheld walk, motion blur, no composed door) and correctly emit a 4×5 m prior at 30% (`fallback_prior`). That is the fail-loud path. The graded photo path is 2–8 composed JPEGs with a door leaf, as in the README protocol.
 
@@ -50,4 +66,8 @@ Written as decisions happen. Cap is 6 pages at submission; this file is the sing
 
 Scale is still the door (2.032 m) or the 2.4 m ceiling prior. Stitch reuses photo `stitch_rooms`. Opening 2 cm judgment call is unchanged.
 
-**Own clips are not shot yet.** The only real video on disk is vendor `rgb.mp4`. First real-data run (8 mid-biased keyframes, clip treated as a video-only folder): 7 frames failed VP/sanity (one lacked two vanishing points — a close-up / coverage miss, not a consensus-math bug), 1 frame barely passed `_sane_room` (~2.87 m²). Landed in `video_thin_consensus` at ±8% with warning `video_thin_consensus`. Did **not** claim ±3%. That is the coverage risk we flagged: a walkthrough keyframe is not a posed still. Fix, when we have our own clip, is sampling — not VP.
+**Own clip scored (3 Oct, `20261003_210004.mp4`, 1920×1080, 61 s).** Sixteen mid-biased keyframes: **zero sane**. Most are coverage (blank wall / too close). **Frame 476 at 15.9 s is the `214550` corner** and still dies with `DegenerateIntersectionError` 0.0° — handheld vs the passing still at the same pose (blur / a few degrees), not “we never walked there.” Output **`fallback_prior`**. Consensus did not fire. Pause-on-corner is the next shoot, not VP retune.
+
+**LiDAR smoke (3 Oct, Drive zips, no GT — Siva).** `single_room` 4 walls, 52.5 m², no ceiling; `floor_only` 4 walls, 171 m², no ceiling; `with_ceiling` 4 walls, 146 m², height 3.06 m. All validate. Unscored vs tape.
+
+**Photo score on our taped room.** Declaration before the two-anchor re-run: well-anchored stills → **12–16 m²** and walls inside ±8%; corner-door `214550` still **~20–35 m²**; junk rejected. Measured: `201935` **13.34 m², 3.48×3.83**; `014706` **13.36 m², 3.46×3.86**; `214550` **27.4 m²**. Cards/screenshots fail. Stop recon tonight — full table in [`fix_loop/diff.md`](../fix_loop/diff.md).
