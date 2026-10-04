@@ -1,30 +1,33 @@
 # Data that ships vs data that does not
 
-Deliverable #8 requires raw benchmark data in the reproduction bundle:
-sensor logs, tape/laser ground truth, and incumbent-app exports.
+Deliverable #8: raw captures + tape notes ship in the clone so graders can
+regenerate reported numbers. **Cloning this repo downloads our room photos/video.**
 
-## Commit (our work)
+## In the clone (tracked — others get these)
 
-- `data/raw/<our_capture>/` — every capture we record for the benchmark
-  (photos, video, LiDAR), including the multi-room set and the repeat pair
-- `data/raw/home_room_damage/` — staged stain/crack stills (**bundle**, not ignored)
-- `data/raw/home_room_photos_repeat/` — second pass of the taped bedroom
-- `data/raw/home_property/` — bedroom + kitchen; door adjacency is the connector (no hallway folder)
-- `data/raw/home_property_video/` — per-room clips (kitchen walk.mp4)
-- `data/ground_truth/` — laser/tape measurements, room IDs, notes
-- `data/ground_truth/home_room_damage.md` — staged-damage notes (**bundle**, not ignored)
-- later: incumbent app exports used in the head-to-head table
+| Path | What |
+|---|---|
+| `data/raw/home_property/bedroom/` | `201935`, `014706` only (`214550` excluded — known weak) |
+| `data/raw/home_property/kitchen/` | three kitchen stills |
+| `data/raw/home_property_video/kitchen/walk.mp4` | kitchen clip |
+| `data/raw/home_room_photos/` | full bedroom still dump (includes weak stills) |
+| `data/raw/home_room_video/walk.mp4` | bedroom walk (~75 MB) |
+| `data/raw/home_room_damage/` | four stain close-ups |
+| `data/raw/home_room_photos_repeat/` | **empty stub** — second shoot not done |
+| `data/ground_truth/home_room.csv` | bedroom tape |
+| `data/ground_truth/home_room.md` | tape notes |
+| `data/ground_truth/home_room_damage.md` | stain notes; crack TBD |
 
-## Do not commit (vendor)
+## Not in the clone (gitignored)
 
-- Drive sample zips and the three Stray hash folders they unpack to
-- Local symlinks named `single_room`, `floor_only`, `with_ceiling`
-  (machine-specific paths into Downloads)
-- `single_room_photos/` — stills ripped from the vendor video for local debugging,
-  not a real photo-tier capture
-- `downloads_sane/` — local filter dump from `~/Downloads`; not a protocol folder
+- Vendor Drive zips / `single_room`, `floor_only`, `with_ceiling` symlinks
+- `single_room_photos/`, `downloads_sane/`, `runs/`
 
-Those vendor names are gitignored on purpose. **Damage stills, repeat stills,
-`home_property/`, and `home_room_damage.md` are our work — they stay tracked.**
-If you are about to add `data/raw/*` or `data/ground_truth/*` to `.gitignore`,
-stop — that is the hour-44 failure mode.
+Do **not** add `data/raw/*` or `data/ground_truth/*` to `.gitignore`.
+
+## Graders: start here
+
+```bash
+uv run floorplan process data/raw/home_property --out runs/home_property
+uv run python scripts/benchmark.py runs/home_property/plan.json data/ground_truth/home_room.csv
+```

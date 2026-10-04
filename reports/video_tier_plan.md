@@ -1,8 +1,6 @@
 # Video tier — plan and implementation
 
-Increment 3 of ~6. Same CLI and `RoomGeometry` as LiDAR/photos. Handheld clip, no depth, no poses. Gate: wall lengths **±3%** with calibrated intervals (tighter than photo ±8%, looser than LiDAR). Shipped.
-
-Hard-cap was ~4–6 hours. If ±3% is not hit on a real clip, widen the interval honestly — do not start COLMAP.
+Increment 3 design notes (historical). **Current run book:** [`README.md`](../README.md). Gate claim ±3% on consensus only — our kitchen/bedroom walks so far are thin/fallback; do not treat ±3% as proven on in-repo clips.
 
 ---
 

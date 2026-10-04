@@ -1,5 +1,9 @@
 # Fix loop — worst-performing gate (photo wall lengths)
 
+**Current submission score** is not this file’s early FAIL table — use
+[`reports/benchmark_report.md`](../reports/benchmark_report.md)
+(`home_property` bedroom without `214550`). This file is the prediction → after trail.
+
 **Still:** `20261003_214550` as `data/raw/home_room_photos/00.jpg`  
 **Run:** `runs/home_room_photos/plan.json`  
 **Reason:** `door_height_2.032m` (after the conditioned-intersection fix)  

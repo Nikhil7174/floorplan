@@ -1,7 +1,16 @@
 # Ground truth
 
-Put laser/tape measurements here as we capture them. This directory is
-**not** gitignored. A CSV per property is enough for `scripts/benchmark.py`.
+**Not gitignored.** Ships in the clone.
 
-First taped room: [`home_room.csv`](home_room.csv) (see [`home_room.md`](home_room.md)).
-Drop stills in `data/raw/home_room_photos/` and the clip in `data/raw/home_room_video/`.
+| File | Role |
+|---|---|
+| [`home_room.csv`](home_room.csv) | Bedroom tape (scored) |
+| [`home_room.md`](home_room.md) | How walls/door/ceiling were measured |
+| [`home_room_damage.md`](home_room_damage.md) | Stain notes; **crack still TBD** |
+
+Kitchen tape / `home_property.csv` — **not created** (kitchen unscored).
+
+```bash
+uv run python scripts/benchmark.py \
+  runs/home_property/plan.json data/ground_truth/home_room.csv
+```

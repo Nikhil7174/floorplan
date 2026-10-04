@@ -1,6 +1,6 @@
 # Photo tier — plan and implementation
 
-Increment 2. Same CLI and `RoomGeometry` contract as LiDAR. No metric depth from the phone, no poses, 2–8 stills per room. As of 4 Oct the primary recon is monocular depth (Depth Anything V2 Small), not LSD+VP.
+Increment 2 design notes (historical). **Current run book:** [`README.md`](../README.md). Primary recon is Depth Anything V2 Small + two-anchor scale; LSD+VP is fallback. Scored smoke: `data/raw/home_property`.
 
 ---
 

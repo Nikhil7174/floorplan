@@ -2,7 +2,7 @@
 
 Written as decisions happen. Cap is 6 pages at submission; this file is the single source of truth.
 
-**Schedule.** Increment 4 of ~6. Photo recon + fix-loop is stopped. Next: benchmark script, damage (draft 2-class), repeatability, then 3-room capture. Head-to-head is an assumption until a reply.
+**Schedule.** Submission-facing docs updated. Pipeline + bedroom score are done. Multi-room is **partial** (2 rooms + door adjacency; literal 3+ rooms + connector not captured). Other open capture items (crack stills, photo repeat, kitchen tape, head-to-head) are listed in the README and compliance matrix — not silent.
 
 ## Siva — 3 Oct 2026 (written assumptions for submission)
 
@@ -81,4 +81,18 @@ Scale is still the door (2.032 m) or the 2.4 m ceiling prior. Stitch reuses phot
 
 **Repeatability.** Same stills + seed 42 must emit the same wall lengths (`tests/reconstruction/test_repeatability.py`). Second bedroom shoot goes in `data/raw/home_room_photos_repeat/` when captured.
 
-**Multi-room (2 rooms).** `data/raw/home_property/{bedroom,kitchen}/`. No hallway folder — door adjacency is the connector. Known-weak oblique-door still `214550` **excluded** from bedroom consensus to avoid re-introducing a characterized failure mode; bedroom keeps only tape-passing `201935` / `014706`. Re-run: bedroom **3.46×3.86 m, 13.36 m²**, all four walls **PASS ±8%** vs tape; kitchen still thin (one sane still, ~66 m²); adjacency bedroom—kitchen via door.
+**Multi-room (partial).** Spec asks for three or more rooms plus a connector. We captured **2 rooms** (`data/raw/home_property/{bedroom,kitchen}/`) with **door adjacency as the connector** — no hallway folder. Architecture (`stitch_rooms`, `infer_adjacencies`) accepts another room/connector folder without code changes; the gap is capture-time, not capability. Known-weak oblique-door still `214550` **excluded** from bedroom consensus to avoid re-introducing a characterized failure mode; bedroom keeps only tape-passing `201935` / `014706`. Re-run: bedroom **3.46×3.86 m, 13.36 m²**, all four walls **PASS ±8%** vs tape; kitchen still thin (one sane still, ~66 m²); adjacency bedroom—kitchen via door.
+
+## Open items (do not invent a “done”)
+
+| Item | Where |
+|---|---|
+| 3rd room / connector folder (spec composition) | capture only — stitch already supports it |
+| Crack-class stills | `data/ground_truth/home_room_damage.md` |
+| Second bedroom shoot | `data/raw/home_room_photos_repeat/` (empty) |
+| Kitchen tape CSV | not created |
+| Video ±3% on our walks | thin/fallback only so far |
+| Head-to-head | assumption #6 above |
+| Push remote if graders clone GitHub | local may be ahead of `origin` |
+
+Run book / smoke: [`README.md`](../README.md). Matrix: [`compliance_matrix.md`](compliance_matrix.md).

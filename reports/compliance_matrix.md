@@ -2,22 +2,33 @@
 
 | Requirement | Path | Artifact | Status |
 |---|---|---|---|
-| One command per capture | `src/floorplan/cli.py` | `uv run floorplan process <dir> --out <dir>` | done (LiDAR / photos / video) |
-| LiDAR ingest (depth, poses, K) | `src/floorplan/ingestion/lidar.py` | `LidarCapture` | done |
-| Photo tier | `src/floorplan/ingestion/photos.py`, `reconstruction/sfm.py`, `depth_model.py` | DA-V2 + RANSAC, VP fallback, ±8% CIs | done |
-| Opening widths ≤ 2 cm on ≥ 85% | LiDAR: `reconstruction/room.py` occupancy gaps. Photo: placeholder leaf on longest wall (`sfm._door_openings`) | **Assumption (Siva 3 Oct: list at submission):** 2 cm gate is LiDAR-only. Photo/video openings widen with the tier, same as walls. Position not measured. | documented |
-| Video tier | `ingestion/video.py`, `reconstruction/video.py` | keyframe sample + photo recon + consensus / thin / fallback | done (synthetic; own clips not shot) |
-| Plane fitting / room polygon | `src/floorplan/reconstruction/plane_fitting.py`, `room.py` | `RoomGeometry` | done (single room) |
-| Scale recovery hook | `src/floorplan/reconstruction/scale_recovery.py` | identity on LiDAR | done |
-| SfM | `src/floorplan/reconstruction/depth_model.py`, `sfm.py` | DA-V2 cloud + RANSAC; VP fallback; not COLMAP | done (photos) |
-| Photo whole-property stitch | `src/floorplan/stitching/` | door-match + non-overlap pack | done (no pose-graph drift) |
-| Damage + concealed rules | `src/floorplan/damage/` | 2-class stain/crack (draft, FN-leaning); concealed flags | done (draft; staged stills pending) |
-| Confidence on every metric | `src/floorplan/confidence/scoring.py` | `ConfidenceInterval` | done |
-| JSON schema | `src/floorplan/schema/property_plan.json` | `plan.json` (our schema; none published in PDF/Drive) | done |
-| Raw benchmark data ships | `data/README.md`, `.gitignore` | **Siva 3 Oct (cleared):** no GT on Drive samples. Our tape is `home_room.csv`. LiDAR vendor zips = smoke only. | in_progress (photo scored; video original still missing) |
-| Rendered plan | `src/floorplan/render/plan.py` | `plan.png` | done |
-| Config, no magic numbers | `configs/default.yaml` | thresholds | done |
-| Capture protocol + device matrix | `README.md` | Route 2 Stray Scanner + photo/video Camera protocol | done |
-| Benchmark gates | `scripts/benchmark.py` | tape CSV vs plan.json; report in `reports/benchmark_report.md` | `201935`/`014706` PASS ±8%; `214550` FAIL |
-| Fix loop | `fix_loop/diff.md` | VP guard + DA-V2 two-anchor; prediction then after on tape | done (photo walls; stop recon tonight) |
-| Repeatability / golden JSON | `tests/reconstruction/test_repeatability.py` | same input + seed 42 → same walls | unit done; second shoot pending |
+| One command per capture | `src/floorplan/cli.py` | `uv run floorplan process <dir> --out <dir>` | **done** (LiDAR / photos / video) |
+| LiDAR ingest | `ingestion/lidar.py` | `LidarCapture` | **done** |
+| Photo tier | `sfm.py`, `depth_model.py` | DA-V2 + two-anchor; VP fallback; ±8% | **done** |
+| Opening widths ≤ 2 cm ≥ 85% | LiDAR occupancy; photo placeholder leaf | **Assumption:** 2 cm is LiDAR-only (Siva 3 Oct) | documented |
+| Video tier | `video.py` | keyframes + consensus / thin / fallback | **done** (own clips thin/fallback; ±3% unproven on our walks) |
+| Plane fitting / room polygon | `plane_fitting.py`, `room.py` | `RoomGeometry` | **done** |
+| Scale recovery | `scale_recovery.py` / depth affine | LiDAR identity; photo door+floor anchors | **done** |
+| SfM | depth + VP fallback | not COLMAP | **done** |
+| Multi-room stitch | `stitching/` | bedroom+kitchen; door = connector | **partial** — 2 rooms + door adjacency implemented and scored; literal “3+ rooms plus connector” composition not captured due to time; architecture (`stitch_rooms`, `infer_adjacencies`) supports a 3rd room/connector folder without code changes if captured |
+| Damage + concealed | `damage/` | stain/crack draft; concealed flags | **partial** — stain stills in; crack stills **not shot**; precision not benchmarked |
+| Confidence on every metric | `confidence/scoring.py` | `ConfidenceInterval` | **done** |
+| JSON schema | `schema/property_plan.json` | ours (none published in PDF/Drive) | **done** |
+| Raw benchmark data ships | `data/raw/`, `data/ground_truth/` | our captures committed | **done** for bedroom+kitchen+stains; repeat folder empty |
+| Rendered plan | `render/plan.py` | `plan.png` | **done** |
+| Config, no magic numbers | `configs/default.yaml` | thresholds | **done** |
+| Capture protocol + device matrix | `README.md` | AirDrop/USB + folder shape | **done** |
+| Benchmark gates | `scripts/benchmark.py` | vs `home_room.csv` | **done** — bedroom PASS ±8% on `home_property` |
+| Fix loop | `fix_loop/diff.md` | prediction then after | **done** |
+| Repeatability | `test_repeatability.py` | seed 42 unit test | **partial** — unit done; second bedroom shoot **not done** |
+| Head-to-head vs consumer app | — | no export on Drive | **assumption** — listed, not scored |
+| Clean-machine < 15 min | README smoke | timed ~4 min clean clone | **done** (documented) |
+| LiDAR multi-room drift | — | no LiDAR phone | **out of scope** (assumption) |
+
+## Open capture checklist (if time)
+
+1. 3rd room and/or connector folder → drop under `data/raw/home_property/` (no code change)
+2. Crack stills → `data/raw/home_room_damage/` + fill table in `home_room_damage.md`
+3. Second bedroom pass → `data/raw/home_room_photos_repeat/`
+4. Optional: kitchen tape CSV → `data/ground_truth/home_property.csv`
+5. Push `main` when remote should match local (reproduction clone)
