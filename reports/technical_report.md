@@ -2,7 +2,7 @@
 
 Written as decisions happen. Cap is 6 pages at submission; this file is the single source of truth.
 
-**Schedule.** Increment 3 of ~6 (LiDAR multi-room drift, damage, fix loop, benchmark/head-to-head still ahead). Video is many photo reconstructions plus a median, not SLAM.
+**Schedule.** Increment 4 of ~6. Photo recon + fix-loop is stopped. Next: benchmark script, damage (draft 2-class), repeatability, then 3-room capture. Head-to-head is an assumption until a reply.
 
 ## Siva — 3 Oct 2026 (written assumptions for submission)
 
@@ -15,6 +15,7 @@ Assumptions we will list:
 3. **LiDAR GT.** We have no LiDAR phone. Vendor zips are run as a smoke test, not scored against tape. Scored rooms are our own photo/video + tape (`data/ground_truth/home_room.csv`).
 4. **Door scale** defaults to 2.032 m (80"). This room’s taped leaf is 2.045 m; we score against tape and do not retune the global prior unless a capture-local config is used.
 5. **One clip / one still-folder per room.** We do not invent room cuts from a property-length walk.
+6. **Head-to-head vs a consumer app.** No Polycam/RoomPlan/incumbent export was on Drive and none has been sent. We do not run a closed app we cannot reproduce. If a CSV/JSON arrives, it goes through `scripts/benchmark.py`. Until then this row is listed, not scored.
 
 **Opening gate — spec is ambiguous; this is our reading.** The metric table requires opening widths ≤ 2 cm on ≥ 85% of openings, and scores missed/phantom openings. Walls are explicitly loosened for photos (±8%) and video (±3%). The opening row has **no** photo/video exception. Two readings: (a) 2 cm applies at every tier, or (b) openings follow the same “calibrated intervals widen as sensors thin” rule as walls. We are shipping (b): photo opening *position* is a placeholder (typical 0.9 m leaf on the longest wall, not imaged), and we do not claim the 2 cm detection gate on the photo path. Siva said we may list this as an assumption. If a grader still applies (a), photo openings fail that row. Do not spend increment time building jamb localization.
 
@@ -71,3 +72,13 @@ Scale is still the door (2.032 m) or the 2.4 m ceiling prior. Stitch reuses phot
 **LiDAR smoke (3 Oct, Drive zips, no GT — Siva).** `single_room` 4 walls, 52.5 m², no ceiling; `floor_only` 4 walls, 171 m², no ceiling; `with_ceiling` 4 walls, 146 m², height 3.06 m. All validate. Unscored vs tape.
 
 **Photo score on our taped room.** Declaration before the two-anchor re-run: well-anchored stills → **12–16 m²** and walls inside ±8%; corner-door `214550` still **~20–35 m²**; junk rejected. Measured: `201935` **13.34 m², 3.48×3.83**; `014706` **13.36 m², 3.46×3.86**; `214550` **27.4 m²**. Cards/screenshots fail. Stop recon tonight — full table in [`fix_loop/diff.md`](../fix_loop/diff.md).
+
+## Increment 4 — benchmark, damage (draft), repeatability
+
+**Benchmark.** `uv run python scripts/benchmark.py <plan.json> data/ground_truth/home_room.csv` sorts walls and prints ±8% / ±3% pass-fail. See [`reports/benchmark_report.md`](benchmark_report.md).
+
+**Damage.** Two classes (`stain`, `crack`), conservative OpenCV, warning `damage_detector_draft:precision_not_benchmarked`. Empty list means none found, not “the room is clean.” Concealed flags are rules (`no_ceiling`, occluded wall), not detections. Staged stills and notes: `data/raw/home_room_damage/` + `data/ground_truth/home_room_damage.md` — **tracked**, not gitignored.
+
+**Repeatability.** Same stills + seed 42 must emit the same wall lengths (`tests/reconstruction/test_repeatability.py`). Second bedroom shoot goes in `data/raw/home_room_photos_repeat/` when captured.
+
+**Multi-room.** Stitch already exists. Capture tree: `data/raw/home_property/{bedroom,second,connector}/`. Ping when those folders have stills.

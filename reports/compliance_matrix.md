@@ -11,13 +11,13 @@
 | Scale recovery hook | `src/floorplan/reconstruction/scale_recovery.py` | identity on LiDAR | done |
 | SfM | `src/floorplan/reconstruction/depth_model.py`, `sfm.py` | DA-V2 cloud + RANSAC; VP fallback; not COLMAP | done (photos) |
 | Photo whole-property stitch | `src/floorplan/stitching/` | door-match + non-overlap pack | done (no pose-graph drift) |
-| Damage + concealed rules | `src/floorplan/damage/` | stub | not_started |
+| Damage + concealed rules | `src/floorplan/damage/` | 2-class stain/crack (draft, FN-leaning); concealed flags | done (draft; staged stills pending) |
 | Confidence on every metric | `src/floorplan/confidence/scoring.py` | `ConfidenceInterval` | done |
 | JSON schema | `src/floorplan/schema/property_plan.json` | `plan.json` (our schema; none published in PDF/Drive) | done |
 | Raw benchmark data ships | `data/README.md`, `.gitignore` | **Siva 3 Oct (cleared):** no GT on Drive samples. Our tape is `home_room.csv`. LiDAR vendor zips = smoke only. | in_progress (photo scored; video original still missing) |
 | Rendered plan | `src/floorplan/render/plan.py` | `plan.png` | done |
 | Config, no magic numbers | `configs/default.yaml` | thresholds | done |
 | Capture protocol + device matrix | `README.md` | Route 2 Stray Scanner + photo/video Camera protocol | done |
-| Benchmark gates | `scripts/benchmark.py` | stub; first tape score is in `fix_loop/diff.md` / `home_room.md` | photo walls FAIL ±8%; area −12.9% |
+| Benchmark gates | `scripts/benchmark.py` | tape CSV vs plan.json; report in `reports/benchmark_report.md` | `201935`/`014706` PASS ±8%; `214550` FAIL |
 | Fix loop | `fix_loop/diff.md` | VP guard + DA-V2 two-anchor; prediction then after on tape | done (photo walls; stop recon tonight) |
-| Repeatability / golden JSON | `tests/` | after first good run | not_started |
+| Repeatability / golden JSON | `tests/reconstruction/test_repeatability.py` | same input + seed 42 → same walls | unit done; second shoot pending |
