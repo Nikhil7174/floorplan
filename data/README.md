@@ -9,7 +9,7 @@ sensor logs, tape/laser ground truth, and incumbent-app exports.
   (photos, video, LiDAR), including the multi-room set and the repeat pair
 - `data/raw/home_room_damage/` — staged stain/crack stills (**bundle**, not ignored)
 - `data/raw/home_room_photos_repeat/` — second pass of the taped bedroom
-- `data/raw/home_property/` — bedroom + kitchen (+ connector when shot)
+- `data/raw/home_property/` — bedroom + kitchen; door adjacency is the connector (no hallway folder)
 - `data/raw/home_property_video/` — per-room clips (kitchen walk.mp4)
 - `data/ground_truth/` — laser/tape measurements, room IDs, notes
 - `data/ground_truth/home_room_damage.md` — staged-damage notes (**bundle**, not ignored)

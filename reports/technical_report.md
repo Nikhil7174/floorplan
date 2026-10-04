@@ -81,4 +81,4 @@ Scale is still the door (2.032 m) or the 2.4 m ceiling prior. Stitch reuses phot
 
 **Repeatability.** Same stills + seed 42 must emit the same wall lengths (`tests/reconstruction/test_repeatability.py`). Second bedroom shoot goes in `data/raw/home_room_photos_repeat/` when captured.
 
-**Multi-room.** Stitch already exists. Capture tree: `data/raw/home_property/{bedroom,second,connector}/`. Ping when those folders have stills.
+**Multi-room (2 rooms).** `data/raw/home_property/{bedroom,kitchen}/`. No hallway folder — door adjacency is the connector. Known-weak oblique-door still `214550` **excluded** from bedroom consensus to avoid re-introducing a characterized failure mode; bedroom keeps only tape-passing `201935` / `014706`. Re-run: bedroom **3.46×3.86 m, 13.36 m²**, all four walls **PASS ±8%** vs tape; kitchen still thin (one sane still, ~66 m²); adjacency bedroom—kitchen via door.
