@@ -13,7 +13,9 @@ from floorplan.ingestion.detect import detect_tier
 from floorplan.ingestion.lidar import backproject, ingest_lidar
 from floorplan.ingestion.photos import ingest_photos
 from floorplan.ingestion.video import ingest_video
-from floorplan.models import PropertyPlan
+from floorplan.damage.concealed_rules import apply_concealed_rules
+from floorplan.damage.detection import detect_damage
+from floorplan.models import PropertyPlan, RoomGeometry
 from floorplan.reconstruction.plane_fitting import (
     classify_planes,
     extract_planes,
@@ -63,6 +65,7 @@ def _process_lidar(capture_dir: Path, capture_id: str, config: AppConfig) -> Pro
     if len(planes.walls) < 3:
         planes = recover_vertical_walls(cloud.xyz, planes, config)
     room = build_room(planes, config, room_id=capture_id, tier="lidar")
+    room = _attach_surface_notes(room, [], config)
     return PropertyPlan(
         tier="lidar",
         capture_id=capture_id,
@@ -78,19 +81,18 @@ def _process_photos(capture_dir: Path, capture_id: str, config: AppConfig) -> Pr
     for photo_room in capture.rooms:
         logger.info("Stage reconstruction: photos room=%s n=%d", photo_room.room_id, len(photo_room.images))
         polygon, openings, ceiling, reason, warnings = reconstruct_photo_room(photo_room, config)
-        rooms.append(
-            build_room_from_polygon(
-                polygon,
-                config,
-                room_id=photo_room.room_id,
-                tier="photos",
-                ceiling_m=ceiling,
-                openings_by_wall=openings,
-                length_frac=_interval_frac(reason, config),
-                reason=reason,
-                warnings=warnings,
-            )
+        geom = build_room_from_polygon(
+            polygon,
+            config,
+            room_id=photo_room.room_id,
+            tier="photos",
+            ceiling_m=ceiling,
+            openings_by_wall=openings,
+            length_frac=_interval_frac(reason, config),
+            reason=reason,
+            warnings=warnings,
         )
+        rooms.append(_attach_surface_notes(geom, list(photo_room.images), config))
     return stitch_rooms(rooms, capture_id, "photos")
 
 
@@ -100,20 +102,29 @@ def _process_video(capture_dir: Path, capture_id: str, config: AppConfig) -> Pro
     for video_room in capture.rooms:
         logger.info("Stage reconstruction: video room=%s clip=%s", video_room.room_id, video_room.clip.name)
         polygon, openings, ceiling, reason, warnings = reconstruct_video_room(video_room, config)
-        rooms.append(
-            build_room_from_polygon(
-                polygon,
-                config,
-                room_id=video_room.room_id,
-                tier="video",
-                ceiling_m=ceiling,
-                openings_by_wall=openings,
-                length_frac=_interval_frac(reason, config),
-                reason=reason,
-                warnings=warnings,
-            )
+        geom = build_room_from_polygon(
+            polygon,
+            config,
+            room_id=video_room.room_id,
+            tier="video",
+            ceiling_m=ceiling,
+            openings_by_wall=openings,
+            length_frac=_interval_frac(reason, config),
+            reason=reason,
+            warnings=warnings,
         )
+        rooms.append(_attach_surface_notes(geom, [], config))
     return stitch_rooms(rooms, capture_id, "video")
+
+
+def _attach_surface_notes(
+    room: RoomGeometry,
+    images: list,
+    config: AppConfig,
+) -> RoomGeometry:
+    regions, extra = detect_damage(images, config)
+    concealed = apply_concealed_rules(room)
+    return room.model_copy(update={"damage": regions, "warnings": list(room.warnings) + extra + concealed})
 
 
 def _interval_frac(reason: str, config: AppConfig) -> float:

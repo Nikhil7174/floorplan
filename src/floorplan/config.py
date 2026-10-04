@@ -87,6 +87,17 @@ class VideoSettings(BaseModel):
     midpoint_bias: bool = True
 
 
+class DamageSettings(BaseModel):
+    enabled: bool = True
+    # Conservative: prefer false negatives. Draft — precision not benchmarked.
+    stain_min_area_frac: float = 0.008
+    stain_max_area_frac: float = 0.06
+    stain_sat_min: int = 40
+    crack_min_length_frac: float = 0.18
+    crack_max_width_px: int = 6
+    crack_min_aspect: float = 10.0
+
+
 class ConfidenceSettings(BaseModel):
     wall_base_half_m: float = 0.015
     height_base_half_m: float = 0.01
@@ -105,6 +116,7 @@ class AppConfig(BaseModel):
     openings: OpeningSettings = Field(default_factory=OpeningSettings)
     photos: PhotoSettings = Field(default_factory=PhotoSettings)
     video: VideoSettings = Field(default_factory=VideoSettings)
+    damage: DamageSettings = Field(default_factory=DamageSettings)
     confidence: ConfidenceSettings = Field(default_factory=ConfidenceSettings)
 
 

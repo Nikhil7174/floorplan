@@ -95,7 +95,26 @@
         "warnings": {
           "type": "array",
           "items": { "type": "string" }
+        },
+        "damage": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/damage_region" }
         }
+      }
+    },
+    "damage_region": {
+      "type": "object",
+      "required": ["kind", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["stain", "crack"] },
+        "wall_id": { "type": ["string", "null"] },
+        "t0_m": { "type": "number" },
+        "t1_m": { "type": "number" },
+        "area_frac": { "type": "number" },
+        "confidence": { "type": "number" },
+        "reason": { "type": "string" },
+        "image_name": { "type": "string" }
       }
     },
     "adjacency": {

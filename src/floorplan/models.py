@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 Tier = Literal["photos", "video", "lidar"]
 OpeningKind = Literal["door", "window", "unknown"]
+DamageKind = Literal["stain", "crack"]
 
 
 class ConfidenceInterval(BaseModel):
@@ -41,6 +42,19 @@ class Wall(BaseModel):
     openings: list[Opening] = Field(default_factory=list)
 
 
+class DamageRegion(BaseModel):
+    """One conservative stain or crack. Empty list means none found, not 'no damage exists'."""
+
+    kind: DamageKind
+    wall_id: str | None = None
+    t0_m: float = 0.0
+    t1_m: float = 0.0
+    area_frac: float = 0.0
+    confidence: float = 0.0
+    reason: str
+    image_name: str = ""
+
+
 class RoomGeometry(BaseModel):
     """Same object from every tier so downstream stages do not branch on sensor type."""
 
@@ -51,6 +65,7 @@ class RoomGeometry(BaseModel):
     ceiling_height_m: ConfidenceInterval
     floor_area_m2: ConfidenceInterval
     warnings: list[str] = Field(default_factory=list)
+    damage: list[DamageRegion] = Field(default_factory=list)
 
 
 class Adjacency(BaseModel):

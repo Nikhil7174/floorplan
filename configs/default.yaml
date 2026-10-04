@@ -81,6 +81,16 @@ video:
   # Bias samples toward mid-clip (walker more often centered) instead of uniform time.
   midpoint_bias: true
 
+# Conservative 2-class detector. Prefer misses over phantoms. Draft — not scored.
+damage:
+  enabled: true
+  stain_min_area_frac: 0.008
+  stain_max_area_frac: 0.06
+  stain_sat_min: 40
+  crack_min_length_frac: 0.18
+  crack_max_width_px: 6
+  crack_min_aspect: 10.0
+
 confidence:
   wall_base_half_m: 0.015
   height_base_half_m: 0.01
